@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Server PWA</title>
+    <link rel="manifest" href="manifest.json">
+    
+    <script src="env.js"></script>
+    <script>
+        function getEnvVar(name, defaultValue) {
+            return window?.ENV?.[name] || defaultValue;
+        }
+    </script>
+
+    <style>
+        body { margin: 0; overflow: hidden; }
+        iframe { width: 100vw; height: 100vh; border: none; }
+        .keyboard-overlay {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            padding: 10px;
+        }
+        .key {
+            background: #333;
+            color: white;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <iframe id="codeServer"></iframe>
+    <script>
+        document.getElementById("codeServer").src = getEnvVar("CODE_SERVER_URL", "https://default-code-server-url");
+    </script>
+
+    <div class="keyboard-overlay">
+        <div class="key" onmousedown="pressKey('Control')" onmouseup="releaseKey('Control')">Ctrl</div>
+        <div class="key" onmousedown="pressKey('ArrowUp')" onmouseup="releaseKey('ArrowUp')">↑</div>
+        <div class="key" onmousedown="pressKey('ArrowDown')" onmouseup="releaseKey('ArrowDown')">↓</div>
+        <div class="key" onmousedown="pressKey('ArrowLeft')" onmouseup="releaseKey('ArrowLeft')">←</div>
+        <div class="key" onmousedown="pressKey('ArrowRight')" onmouseup="releaseKey('ArrowRight')">→</div>
+        <div class="key" onmousedown="pressKey('c')" onmouseup="releaseKey('c')">C</div>
+        <div class="key" onmousedown="pressKey('v')" onmouseup="releaseKey('v')">V</div>
+    </div>
+
+    <script>
+        let activeKeys = new Set();
+        function pressKey(key) {
+            activeKeys.add(key);
+            sendKeys();
+        }
+        function releaseKey(key) {
+            activeKeys.delete(key);
+            sendKeys();
+        }
+        function sendKeys() {
+            const iframe = document.getElementById('codeServer').contentWindow;
+            activeKeys.forEach(key => {
+                iframe.dispatchEvent(new KeyboardEvent('keydown', { key }));
+            });
+            activeKeys.forEach(key => {
+                iframe.dispatchEvent(new KeyboardEvent('keyup', { key }));
+            });
+        }
+    </script>
+</body>
+</html>

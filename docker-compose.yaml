@@ -1,0 +1,11 @@
+version: '3'
+services:
+  code-server-pwa:
+    container_name: code-server-pwa
+    image: code-server-pwa
+    build: .
+    ports:
+      - "8080:80"
+    environment:
+      - CODE_SERVER_URL=https://your-code-server-url
+    restart: unless-stopped

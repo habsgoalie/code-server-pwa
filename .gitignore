@@ -1,0 +1,30 @@
+# Ignore node modules and dependencies
+node_modules/
+
+# Ignore environment files
+.env
+env.js
+
+# Ignore Docker build artifacts
+dist/
+*.log
+docker-compose.override.yml
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+
+# Ignore Nginx temp files
+nginx/temp/
+
+# Ignore compiled assets
+/build
+/cache
+
+# Ignore any local development overrides
+local_settings.json
