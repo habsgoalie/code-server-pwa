@@ -1,22 +1,40 @@
 {
-    "name": "Code Server PWA",
-    "short_name": "CodeServer",
-    "description": "A PWA wrapper for Code Server with a virtual terminal keyboard.",
-    "start_url": "/",
-    "display": "standalone",
-    "background_color": "#000000",
-    "theme_color": "#1e1e1e",
-    "icons": [
-      {
-        "src": "/icons/icon-192x192.png",
-        "sizes": "192x192",
-        "type": "image/png"
-      },
-      {
-        "src": "/icons/icon-512x512.png",
-        "sizes": "512x512",
-        "type": "image/png"
-      }
-    ]
-  }
-  
+  "name": "Code Server PWA",
+  "short_name": "CodeServer",
+  "description": "A PWA wrapper for Code Server with a virtual terminal keyboard.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e1e1e",
+  "theme_color": "#1e1e1e",
+  "orientation": "any",
+  "categories": ["development", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Launch Code Server",
+      "short_name": "Code",
+      "description": "Open Code Server in full screen",
+      "url": "/"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "dir": "ltr",
+  "lang": "en-US",
+  "scope": "/",
+  "id": "code-server-pwa"
+}

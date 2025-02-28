@@ -4,73 +4,344 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Code Server PWA</title>
+    
+    <!-- Allow mixed content (HTTP page loading HTTPS iframe) -->
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    
+    <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
     
+    <!-- Favicon -->
+    <link rel="shortcut icon" href="icons/favicon.ico">
+    
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512x512.png">
+    
+    <!-- Apple Touch Icon (for iOS) -->
+    <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512x512.png">
+    
+    <!-- Apple PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Code Server">
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#1e1e1e">
+    
+    <!-- Environment Variables -->
     <script src="env.js"></script>
-    <script>
-        function getEnvVar(name, defaultValue) {
-            return window?.ENV?.[name] || defaultValue;
-        }
-    </script>
-
+    
     <style>
-        body { margin: 0; overflow: hidden; }
-        iframe { width: 100vw; height: 100vh; border: none; }
+        /* Base Styles */
+        :root {
+            --primary-color: #0078d4;
+            --background-color: #1e1e1e;
+            --text-color: #ffffff;
+            --overlay-bg: rgba(0, 0, 0, 0.85);
+            --key-bg: #333;
+            --key-active-bg: #555;
+            --key-border: #444;
+            --key-text: #fff;
+            --error-color: #e74c3c;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+        
+        /* Main iframe */
+        iframe {
+            width: 100vw;
+            height: 100vh;
+            border: none;
+            display: block;
+        }
+        
+        /* Keyboard Styles */
         .keyboard-overlay {
             position: fixed;
             bottom: 0;
+            left: 0;
             width: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            background: var(--overlay-bg);
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             padding: 10px;
+            z-index: 1000;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease;
         }
+        
+        .key-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 5px;
+        }
+        
         .key {
-            background: #333;
-            color: white;
+            background: var(--key-bg);
+            color: var(--key-text);
             padding: 10px 15px;
-            margin: 5px;
+            margin: 3px;
             border-radius: 5px;
             cursor: pointer;
             user-select: none;
+            min-width: 40px;
+            text-align: center;
+            border: 1px solid var(--key-border);
+            transition: all 0.1s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .key:active, .key.active {
+            background: var(--key-active-bg);
+            transform: translateY(2px);
+            box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
+        }
+        
+        .modifier-key {
+            background-color: #444;
+        }
+        
+        .combination-key {
+            background-color: #553;
+        }
+        
+        /* Keyboard Toggle Button */
+        .keyboard-toggle {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            width: 40px;
+            height: 40px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+        
+        .keyboard-toggle.active {
+            background-color: #106ebe;
+        }
+        
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-message {
+            font-size: 18px;
+            color: var(--text-color);
+        }
+        
+        /* Error Overlay */
+        .error-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--background-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .error-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        .error-message {
+            font-size: 20px;
+            color: var(--text-color);
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 80%;
+        }
+        
+        .retry-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .retry-button:hover:not(:disabled) {
+            background-color: #106ebe;
+        }
+        
+        .retry-button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        /* Status Indicator */
+        .status-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            z-index: 1001;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        
+        .status-indicator.connected {
+            background-color: var(--success-color);
+        }
+        
+        .status-indicator.connecting {
+            background-color: var(--warning-color);
+            animation: pulse 1.5s infinite;
+        }
+        
+        .status-indicator.disconnected {
+            background-color: var(--error-color);
+        }
+        
+        .status-indicator.error {
+            background-color: var(--error-color);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+        
+        /* Media Queries for Responsive Design */
+        @media (max-width: 768px) {
+            .key {
+                padding: 8px 12px;
+                min-width: 36px;
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .key {
+                padding: 6px 10px;
+                min-width: 32px;
+                font-size: 12px;
+                margin: 2px;
+            }
+        }
+        
+        /* Hidden input for keyboard focus */
+        #keyboard-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+            z-index: -1;
         }
     </style>
 </head>
 <body>
-    <iframe id="codeServer"></iframe>
+    <!-- Hidden input for keyboard focus -->
+    <input type="text" id="keyboard-input" autocomplete="off">
+    
+    <!-- Main iframe for Code Server -->
+    <iframe id="codeServer" allow="clipboard-read; clipboard-write" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-top-navigation"></iframe>
+    
+    <!-- Loading, Error, and Status elements will be created by JavaScript -->
+    
+    <!-- Scripts -->
     <script>
-        document.getElementById("codeServer").src = getEnvVar("CODE_SERVER_URL", "https://default-code-server-url");
-    </script>
-
-    <div class="keyboard-overlay">
-        <div class="key" onmousedown="pressKey('Control')" onmouseup="releaseKey('Control')">Ctrl</div>
-        <div class="key" onmousedown="pressKey('ArrowUp')" onmouseup="releaseKey('ArrowUp')">↑</div>
-        <div class="key" onmousedown="pressKey('ArrowDown')" onmouseup="releaseKey('ArrowDown')">↓</div>
-        <div class="key" onmousedown="pressKey('ArrowLeft')" onmouseup="releaseKey('ArrowLeft')">←</div>
-        <div class="key" onmousedown="pressKey('ArrowRight')" onmouseup="releaseKey('ArrowRight')">→</div>
-        <div class="key" onmousedown="pressKey('c')" onmouseup="releaseKey('c')">C</div>
-        <div class="key" onmousedown="pressKey('v')" onmouseup="releaseKey('v')">V</div>
-    </div>
-
-    <script>
-        let activeKeys = new Set();
-        function pressKey(key) {
-            activeKeys.add(key);
-            sendKeys();
+        // Function to get environment variables
+        function getEnvVar(name, defaultValue) {
+            return window?.ENV?.[name] || defaultValue;
         }
-        function releaseKey(key) {
-            activeKeys.delete(key);
-            sendKeys();
-        }
-        function sendKeys() {
-            const iframe = document.getElementById('codeServer').contentWindow;
-            activeKeys.forEach(key => {
-                iframe.dispatchEvent(new KeyboardEvent('keydown', { key }));
+        
+        // Set up iframe with proper attributes for cross-origin content
+        document.addEventListener('DOMContentLoaded', function() {
+            const iframe = document.getElementById('codeServer');
+            const codeServerUrl = getEnvVar('CODE_SERVER_URL', 'https://default-code-server-url');
+            
+            // Set iframe source
+            iframe.src = codeServerUrl;
+            
+            // Set up keyboard input focus
+            const keyboardInput = document.getElementById('keyboard-input');
+            
+            // Focus the input when the iframe is clicked
+            iframe.addEventListener('click', function() {
+                keyboardInput.focus();
             });
-            activeKeys.forEach(key => {
-                iframe.dispatchEvent(new KeyboardEvent('keyup', { key }));
+            
+            // Focus the input when the page loads
+            setTimeout(function() {
+                keyboardInput.focus();
+            }, 1000);
+            
+            // Handle keyboard events on the input
+            keyboardInput.addEventListener('keydown', function(e) {
+                // Prevent default for certain keys to avoid browser shortcuts
+                if (['Tab', 'F5', 'F11'].includes(e.key) || (e.ctrlKey && ['r', 's', 'p'].includes(e.key))) {
+                    e.preventDefault();
+                }
+                
+                // Focus the iframe to ensure it receives the event
+                iframe.focus();
+                
+                console.log('Keyboard input keydown:', e.key);
             });
-        }
+        });
     </script>
+    <script src="js/keyboard.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>

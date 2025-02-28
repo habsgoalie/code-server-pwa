@@ -7,5 +7,5 @@ services:
     ports:
       - "8080:80"
     environment:
-      - CODE_SERVER_URL=https://your-code-server-url
+      - CODE_SERVER_URL=https://code-server.capybara-shilling.ts.net
     restart: unless-stopped
