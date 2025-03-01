@@ -354,6 +354,91 @@ class TerminalKeyboard {
                     console.log('Successfully accessed iframe document - same origin confirmed');
                     console.log('Iframe URL:', this.iframe.contentWindow.location.href);
                     console.log('Iframe document title:', iframeDocument.title);
+                    
+                    // Try to find the active element or a suitable target in the iframe
+                    let target = null;
+                    
+                    // First, try the active element
+                    if (iframeDocument.activeElement &&
+                        iframeDocument.activeElement !== iframeDocument.body &&
+                        iframeDocument.activeElement !== iframeDocument.documentElement) {
+                        target = iframeDocument.activeElement;
+                        console.log('Using iframe activeElement as target:', target.tagName);
+                    } else {
+                        // Try to find a terminal or editor element
+                        const selectors = [
+                            '.xterm-helper-textarea', // xterm.js terminal input
+                            '.terminal-wrapper textarea', // VS Code terminal
+                            '.monaco-editor textarea', // Monaco editor
+                            '.terminal textarea', // Generic terminal
+                            'textarea', // Any textarea
+                            'input[type="text"]', // Any text input
+                            '.xterm', // xterm.js container
+                            '.terminal', // Generic terminal container
+                            '.monaco-editor', // Monaco editor container
+                        ];
+                        
+                        for (const selector of selectors) {
+                            const elements = iframeDocument.querySelectorAll(selector);
+                            if (elements.length > 0) {
+                                target = elements[0];
+                                console.log('Found target in iframe with selector:', selector);
+                                break;
+                            }
+                        }
+                        
+                        if (!target) {
+                            console.log('No specific target found in iframe, using document.body');
+                            target = iframeDocument.body;
+                        }
+                    }
+                    
+                    // Create keyboard event options
+                    const options = {
+                        key: key,
+                        code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
+                        bubbles: true,
+                        cancelable: true,
+                        view: this.iframe.contentWindow
+                    };
+                    
+                    // Create and dispatch the event directly to the target
+                    const event = new KeyboardEvent('keydown', options);
+                    console.log('Dispatching direct keydown event to target:', target.tagName);
+                    target.dispatchEvent(event);
+                    
+                    // For text inputs, also try to insert the text directly
+                    if (key.length === 1 && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+                        try {
+                            // Get current selection
+                            const start = target.selectionStart || 0;
+                            const end = target.selectionEnd || 0;
+                            
+                            // Insert the character
+                            const newValue = target.value.substring(0, start) + key + target.value.substring(end);
+                            target.value = newValue;
+                            
+                            // Update selection
+                            target.selectionStart = target.selectionEnd = start + 1;
+                            
+                            // Trigger input event
+                            target.dispatchEvent(new Event('input', { bubbles: true }));
+                            console.log('Directly inserted text into input element');
+                        } catch (insertError) {
+                            console.error('Error inserting text directly:', insertError);
+                        }
+                    }
+                    
+                    // Also try to use execCommand for document.execCommand('insertText', false, key);
+                    try {
+                        if (key.length === 1 && iframeDocument.execCommand) {
+                            iframeDocument.execCommand('insertText', false, key);
+                            console.log('Used execCommand to insert text');
+                        }
+                    } catch (execCommandError) {
+                        console.error('Error using execCommand:', execCommandError);
+                    }
+                    
                 } catch (accessError) {
                     console.error('Cannot access iframe document:', accessError);
                 }
@@ -361,7 +446,7 @@ class TerminalKeyboard {
                 console.error('Iframe not found for focusing');
             }
             
-            // Use postMessage to communicate with the iframe
+            // Use postMessage as a fallback
             if (this.iframe && this.iframe.contentWindow) {
                 try {
                     const message = {
@@ -375,22 +460,6 @@ class TerminalKeyboard {
                     console.log('Sending postMessage to iframe:', message);
                     this.iframe.contentWindow.postMessage(message, '*');
                     console.log('postMessage sent successfully');
-                    
-                    // Add a direct DOM event as a fallback approach
-                    try {
-                        const iframeDocument = this.iframe.contentDocument || this.iframe.contentWindow.document;
-                        const event = new KeyboardEvent('keydown', {
-                            key: key,
-                            code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
-                            bubbles: true,
-                            cancelable: true
-                        });
-                        
-                        console.log('Dispatching direct keydown event to iframe document');
-                        iframeDocument.dispatchEvent(event);
-                    } catch (directEventError) {
-                        console.error('Error dispatching direct event:', directEventError);
-                    }
                 } catch (e) {
                     console.error('postMessage error:', e);
                 }
@@ -412,7 +481,65 @@ class TerminalKeyboard {
      */
     sendKeyUp(key) {
         try {
-            // Use postMessage to communicate with the iframe
+            // Try to access iframe content
+            if (this.iframe) {
+                try {
+                    const iframeDocument = this.iframe.contentDocument || this.iframe.contentWindow.document;
+                    
+                    // Try to find the active element or a suitable target in the iframe
+                    let target = null;
+                    
+                    // First, try the active element
+                    if (iframeDocument.activeElement &&
+                        iframeDocument.activeElement !== iframeDocument.body &&
+                        iframeDocument.activeElement !== iframeDocument.documentElement) {
+                        target = iframeDocument.activeElement;
+                    } else {
+                        // Try to find a terminal or editor element
+                        const selectors = [
+                            '.xterm-helper-textarea', // xterm.js terminal input
+                            '.terminal-wrapper textarea', // VS Code terminal
+                            '.monaco-editor textarea', // Monaco editor
+                            '.terminal textarea', // Generic terminal
+                            'textarea', // Any textarea
+                            'input[type="text"]', // Any text input
+                            '.xterm', // xterm.js container
+                            '.terminal', // Generic terminal container
+                            '.monaco-editor', // Monaco editor container
+                        ];
+                        
+                        for (const selector of selectors) {
+                            const elements = iframeDocument.querySelectorAll(selector);
+                            if (elements.length > 0) {
+                                target = elements[0];
+                                break;
+                            }
+                        }
+                        
+                        if (!target) {
+                            target = iframeDocument.body;
+                        }
+                    }
+                    
+                    // Create keyboard event options
+                    const options = {
+                        key: key,
+                        code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
+                        bubbles: true,
+                        cancelable: true,
+                        view: this.iframe.contentWindow
+                    };
+                    
+                    // Create and dispatch the event directly to the target
+                    const event = new KeyboardEvent('keyup', options);
+                    target.dispatchEvent(event);
+                    
+                } catch (accessError) {
+                    console.error('Cannot access iframe document for keyup:', accessError);
+                }
+            }
+            
+            // Use postMessage as a fallback
             if (this.iframe && this.iframe.contentWindow) {
                 try {
                     const message = {
@@ -442,9 +569,85 @@ class TerminalKeyboard {
             // Focus the iframe
             if (this.iframe) {
                 this.iframe.focus();
+                console.log('Focused iframe for combination key:', modifiers.join('+') + '+' + key);
+                
+                // Try to access iframe content
+                try {
+                    const iframeDocument = this.iframe.contentDocument || this.iframe.contentWindow.document;
+                    
+                    // Try to find the active element or a suitable target in the iframe
+                    let target = null;
+                    
+                    // First, try the active element
+                    if (iframeDocument.activeElement &&
+                        iframeDocument.activeElement !== iframeDocument.body &&
+                        iframeDocument.activeElement !== iframeDocument.documentElement) {
+                        target = iframeDocument.activeElement;
+                    } else {
+                        // Try to find a terminal or editor element
+                        const selectors = [
+                            '.xterm-helper-textarea', // xterm.js terminal input
+                            '.terminal-wrapper textarea', // VS Code terminal
+                            '.monaco-editor textarea', // Monaco editor
+                            '.terminal textarea', // Generic terminal
+                            'textarea', // Any textarea
+                            'input[type="text"]', // Any text input
+                            '.xterm', // xterm.js container
+                            '.terminal', // Generic terminal container
+                            '.monaco-editor', // Monaco editor container
+                        ];
+                        
+                        for (const selector of selectors) {
+                            const elements = iframeDocument.querySelectorAll(selector);
+                            if (elements.length > 0) {
+                                target = elements[0];
+                                break;
+                            }
+                        }
+                        
+                        if (!target) {
+                            target = iframeDocument.body;
+                        }
+                    }
+                    
+                    // Create keyboard event options for keydown
+                    const downOptions = {
+                        key: key,
+                        code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
+                        bubbles: true,
+                        cancelable: true,
+                        view: this.iframe.contentWindow
+                    };
+                    
+                    // Add modifier flags
+                    modifiers.forEach(modifier => {
+                        switch (modifier) {
+                            case 'Control': downOptions.ctrlKey = true; break;
+                            case 'Alt': downOptions.altKey = true; break;
+                            case 'Shift': downOptions.shiftKey = true; break;
+                        }
+                    });
+                    
+                    // Create and dispatch the keydown event
+                    const downEvent = new KeyboardEvent('keydown', downOptions);
+                    console.log('Dispatching direct combination keydown event to target');
+                    target.dispatchEvent(downEvent);
+                    
+                    // Send keyup after a short delay
+                    setTimeout(() => {
+                        // Create keyboard event options for keyup
+                        const upOptions = { ...downOptions };
+                        const upEvent = new KeyboardEvent('keyup', upOptions);
+                        target.dispatchEvent(upEvent);
+                        console.log('Dispatched direct combination keyup event to target');
+                    }, 50);
+                    
+                } catch (accessError) {
+                    console.error('Cannot access iframe document for combination key:', accessError);
+                }
             }
             
-            // Use postMessage to communicate with the iframe
+            // Use postMessage as a fallback
             if (this.iframe && this.iframe.contentWindow) {
                 try {
                     const message = {
