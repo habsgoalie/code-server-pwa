@@ -407,27 +407,42 @@
             iframe.addEventListener('load', function() {
                 debugLog('Iframe loaded successfully');
                 
-                // Inject iframe-handler.js into the iframe
+                // Check if we can access the iframe content
                 try {
                     const iframeWindow = iframe.contentWindow;
                     const iframeDocument = iframe.contentDocument || iframeWindow.document;
                     
-                    // Create a script element
-                    const script = iframeDocument.createElement('script');
-                    script.src = 'js/iframe-handler.js';
-                    script.type = 'text/javascript';
+                    debugLog('Successfully accessed iframe document - same origin confirmed');
+                    debugLog('Iframe URL: ' + iframeWindow.location.href);
+                    debugLog('Iframe document title: ' + iframeDocument.title);
                     
-                    // Add onload handler to verify script loading
-                    script.onload = function() {
-                        debugLog('iframe-handler.js loaded successfully in iframe');
-                    };
-                    
-                    script.onerror = function(error) {
-                        debugLog('Error loading iframe-handler.js in iframe: ' + error);
-                    };
-                    
-                    // Append the script to the iframe's document
-                    iframeDocument.head.appendChild(script);
+                    // Inject iframe-handler.js into the iframe
+                    try {
+                        // Create a script element
+                        const script = iframeDocument.createElement('script');
+                        
+                        // Use absolute path to ensure correct loading
+                        const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+                        script.src = baseUrl + 'js/iframe-handler.js';
+                        script.type = 'text/javascript';
+                        
+                        debugLog('Injecting script with src: ' + script.src);
+                        
+                        // Add onload handler to verify script loading
+                        script.onload = function() {
+                            debugLog('iframe-handler.js loaded successfully in iframe');
+                        };
+                        
+                        script.onerror = function(error) {
+                            debugLog('Error loading iframe-handler.js in iframe: ' + error);
+                        };
+                        
+                        // Append the script to the iframe's document
+                        iframeDocument.head.appendChild(script);
+                        debugLog('Script element appended to iframe head');
+                    } catch (scriptError) {
+                        debugLog('Error creating or appending script: ' + scriptError.message);
+                    }
                     
                     // Also inject a small test script to verify script execution
                     const testScript = iframeDocument.createElement('script');

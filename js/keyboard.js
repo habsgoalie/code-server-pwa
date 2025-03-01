@@ -346,6 +346,19 @@ class TerminalKeyboard {
             // Focus the iframe
             if (this.iframe) {
                 this.iframe.focus();
+                console.log('Focused iframe with id:', this.iframe.id);
+                
+                // Check if we can access iframe content
+                try {
+                    const iframeDocument = this.iframe.contentDocument || this.iframe.contentWindow.document;
+                    console.log('Successfully accessed iframe document - same origin confirmed');
+                    console.log('Iframe URL:', this.iframe.contentWindow.location.href);
+                    console.log('Iframe document title:', iframeDocument.title);
+                } catch (accessError) {
+                    console.error('Cannot access iframe document:', accessError);
+                }
+            } else {
+                console.error('Iframe not found for focusing');
             }
             
             // Use postMessage to communicate with the iframe
@@ -355,13 +368,34 @@ class TerminalKeyboard {
                         type: 'keyEvent',
                         eventType: 'keydown',
                         key: key,
-                        activeKeys: Array.from(this.activeKeys)
+                        activeKeys: Array.from(this.activeKeys),
+                        timestamp: Date.now() // Add timestamp for debugging
                     };
                     
+                    console.log('Sending postMessage to iframe:', message);
                     this.iframe.contentWindow.postMessage(message, '*');
+                    console.log('postMessage sent successfully');
+                    
+                    // Add a direct DOM event as a fallback approach
+                    try {
+                        const iframeDocument = this.iframe.contentDocument || this.iframe.contentWindow.document;
+                        const event = new KeyboardEvent('keydown', {
+                            key: key,
+                            code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        
+                        console.log('Dispatching direct keydown event to iframe document');
+                        iframeDocument.dispatchEvent(event);
+                    } catch (directEventError) {
+                        console.error('Error dispatching direct event:', directEventError);
+                    }
                 } catch (e) {
                     console.error('postMessage error:', e);
                 }
+            } else {
+                console.error('Iframe or contentWindow not available for postMessage');
             }
             
             // Show visual feedback
