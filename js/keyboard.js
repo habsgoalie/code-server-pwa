@@ -173,24 +173,15 @@ class TerminalKeyboard {
             document.body.appendChild(toggleButton);
         }
 
-        // Define key groups
+        // Define key groups - reduced to 2 rows
         const keyGroups = [
             {
-                name: 'navigation',
+                name: 'row1',
                 keys: [
                     { display: '↑', key: 'ArrowUp' },
                     { display: '↓', key: 'ArrowDown' },
                     { display: '←', key: 'ArrowLeft' },
                     { display: '→', key: 'ArrowRight' },
-                    { display: 'Home', key: 'Home' },
-                    { display: 'End', key: 'End' },
-                    { display: 'PgUp', key: 'PageUp' },
-                    { display: 'PgDn', key: 'PageDown' }
-                ]
-            },
-            {
-                name: 'control',
-                keys: [
                     { display: 'Esc', key: 'Escape' },
                     { display: 'Tab', key: 'Tab' },
                     { display: '⌫', key: 'Backspace' },
@@ -198,43 +189,14 @@ class TerminalKeyboard {
                 ]
             },
             {
-                name: 'modifiers',
+                name: 'row2',
                 keys: [
-                    { display: 'Ctrl', key: 'Control', isModifier: true },
-                    { display: 'Alt', key: 'Alt', isModifier: true },
-                    { display: 'Shift', key: 'Shift', isModifier: true }
-                ]
-            },
-            {
-                name: 'function',
-                keys: [
-                    { display: 'F1', key: 'F1' },
-                    { display: 'F2', key: 'F2' },
-                    { display: 'F3', key: 'F3' },
-                    { display: 'F4', key: 'F4' },
-                    { display: 'F5', key: 'F5' },
-                    { display: 'F6', key: 'F6' }
-                ]
-            },
-            {
-                name: 'common',
-                keys: [
-                    { display: 'C', key: 'c' },
-                    { display: 'V', key: 'v' },
-                    { display: 'D', key: 'd' },
-                    { display: 'Z', key: 'z' },
-                    { display: 'A', key: 'a' },
-                    { display: 'K', key: 'k' },
-                    { display: 'L', key: 'l' },
-                    { display: 'R', key: 'r' }
-                ]
-            },
-            {
-                name: 'combinations',
-                keys: [
+                    { display: 'Home', key: 'Home' },
+                    { display: 'End', key: 'End' },
+                    { display: 'PgUp', key: 'PageUp' },
+                    { display: 'PgDn', key: 'PageDown' },
                     { display: 'Ctrl+C', key: 'c', withModifiers: ['Control'] },
-                    { display: 'Ctrl+D', key: 'd', withModifiers: ['Control'] },
-                    { display: 'Ctrl+Z', key: 'z', withModifiers: ['Control'] }
+                    { display: 'Ctrl+V', key: 'v', withModifiers: ['Control'] }
                 ]
             }
         ];
