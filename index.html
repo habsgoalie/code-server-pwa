@@ -417,8 +417,36 @@
                     script.src = 'js/iframe-handler.js';
                     script.type = 'text/javascript';
                     
+                    // Add onload handler to verify script loading
+                    script.onload = function() {
+                        debugLog('iframe-handler.js loaded successfully in iframe');
+                    };
+                    
+                    script.onerror = function(error) {
+                        debugLog('Error loading iframe-handler.js in iframe: ' + error);
+                    };
+                    
                     // Append the script to the iframe's document
                     iframeDocument.head.appendChild(script);
+                    
+                    // Also inject a small test script to verify script execution
+                    const testScript = iframeDocument.createElement('script');
+                    testScript.textContent = `
+                        console.log('Test script executed in iframe');
+                        window.parent.postMessage({type: 'test-script-executed'}, '*');
+                        
+                        // Test if we can find terminal elements
+                        setTimeout(function() {
+                            const terminalElements = document.querySelectorAll('.xterm-helper-textarea, .terminal-wrapper textarea, .monaco-editor textarea');
+                            window.parent.postMessage({
+                                type: 'terminal-elements-check',
+                                found: terminalElements.length > 0,
+                                count: terminalElements.length,
+                                selectors: Array.from(terminalElements).map(el => el.tagName + '.' + Array.from(el.classList).join('.'))
+                            }, '*');
+                        }, 2000);
+                    `;
+                    iframeDocument.head.appendChild(testScript);
                     
                     debugLog('Injected iframe-handler.js into iframe');
                 } catch (error) {
@@ -441,8 +469,62 @@
                     if (event.data && event.data.type === 'iframe-handler-ready') {
                         debugLog('iframe-handler.js is ready in the iframe');
                     }
+                    
+                    // Handle test script execution message
+                    if (event.data && event.data.type === 'test-script-executed') {
+                        debugLog('Test script successfully executed in iframe');
+                    }
+                    
+                    // Handle terminal elements check
+                    if (event.data && event.data.type === 'terminal-elements-check') {
+                        if (event.data.found) {
+                            debugLog('Terminal elements found in iframe: ' + event.data.count);
+                            debugLog('Selectors: ' + event.data.selectors.join(', '));
+                        } else {
+                            debugLog('No terminal elements found in iframe');
+                        }
+                    }
+                    
+                    // Handle DOM elements check
+                    if (event.data && event.data.type === 'dom-elements-check') {
+                        debugLog('DOM elements check results:');
+                        const elements = event.data.elements;
+                        for (const selector in elements) {
+                            const count = elements[selector];
+                            debugLog(`- ${selector}: ${count} elements`);
+                        }
+                    }
                 }
             });
+            
+            // Add a test button to manually trigger a key event
+            const testButton = document.createElement('button');
+            testButton.textContent = 'Test Key Event';
+            testButton.style.position = 'fixed';
+            testButton.style.top = '10px';
+            testButton.style.left = '10px';
+            testButton.style.zIndex = '9999';
+            testButton.addEventListener('click', function() {
+                debugLog('Manually triggering test key event');
+                
+                // Simulate clicking the 'a' key on the virtual keyboard
+                const keyboardInstance = window.terminalKeyboard;
+                if (keyboardInstance) {
+                    const keyElements = document.querySelectorAll('.key');
+                    for (const keyEl of keyElements) {
+                        if (keyEl.dataset.key === 'a') {
+                            debugLog('Found "a" key in virtual keyboard, triggering click');
+                            keyboardInstance.handleKeyDown(keyEl);
+                            setTimeout(() => keyboardInstance.handleKeyUp(keyEl), 100);
+                            return;
+                        }
+                    }
+                    debugLog('Could not find "a" key in virtual keyboard');
+                } else {
+                    debugLog('Terminal keyboard instance not found');
+                }
+            });
+            document.body.appendChild(testButton);
         });
     </script>
     <script src="js/keyboard.js"></script>

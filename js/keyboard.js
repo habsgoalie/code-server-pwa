@@ -36,6 +36,9 @@ class TerminalKeyboard {
             return;
         }
         
+        // Check iframe sandbox attributes
+        this.checkIframeSandbox();
+        
         this.createKeyboardDOM();
         this.attachEventListeners();
         this.updateVisibility();
@@ -57,6 +60,46 @@ class TerminalKeyboard {
         
         this.initialized = true;
         console.log('Terminal keyboard initialized');
+    }
+    
+    /**
+     * Check iframe sandbox attributes
+     */
+    checkIframeSandbox() {
+        if (!this.iframe) return;
+        
+        console.log('Checking iframe sandbox attributes');
+        
+        const sandbox = this.iframe.getAttribute('sandbox');
+        console.log('Iframe sandbox attribute:', sandbox);
+        
+        // Check if necessary permissions are present
+        const requiredPermissions = [
+            'allow-scripts',
+            'allow-same-origin',
+            'allow-forms'
+        ];
+        
+        const missingPermissions = [];
+        for (const permission of requiredPermissions) {
+            if (!sandbox || !sandbox.includes(permission)) {
+                missingPermissions.push(permission);
+            }
+        }
+        
+        if (missingPermissions.length > 0) {
+            console.error('Iframe missing required sandbox permissions:', missingPermissions.join(', '));
+        } else {
+            console.log('Iframe has all required sandbox permissions');
+        }
+        
+        // Try to access iframe content to check if same-origin policy is in effect
+        try {
+            const iframeDocument = this.iframe.contentDocument || this.iframe.contentWindow.document;
+            console.log('Successfully accessed iframe document, same-origin confirmed');
+        } catch (error) {
+            console.error('Cannot access iframe document due to cross-origin restrictions:', error);
+        }
     }
 
     /**

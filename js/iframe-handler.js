@@ -25,8 +25,10 @@
                 
                 // Handle the key event
                 if (data.eventType === 'keydown') {
+                    console.log('iframe-handler.js: Processing keydown for key:', data.key);
                     simulateKeyDown(data.key, data.modifiers || []);
                 } else if (data.eventType === 'keyup') {
+                    console.log('iframe-handler.js: Processing keyup for key:', data.key);
                     simulateKeyUp(data.key, data.modifiers || []);
                 }
             }
@@ -34,18 +36,37 @@
         
         // Simulate a key down event
         function simulateKeyDown(key, modifiers = []) {
+            console.log('iframe-handler.js: Simulating keydown for', key, 'with modifiers', modifiers);
+            
             // Try multiple approaches
             
             // Approach 1: Create and dispatch a keyboard event
             try {
                 const options = createKeyEventOptions(key, modifiers);
+                console.log('iframe-handler.js: Created keyboard event options:', JSON.stringify(options));
+                
                 const event = new KeyboardEvent('keydown', options);
+                console.log('iframe-handler.js: Created KeyboardEvent');
+                
+                // Check if the event was created with the correct properties
+                console.log('iframe-handler.js: Event properties - key:', event.key,
+                    'code:', event.code,
+                    'ctrlKey:', event.ctrlKey,
+                    'altKey:', event.altKey,
+                    'shiftKey:', event.shiftKey);
                 
                 // Find the best target for the event
                 const target = findBestTarget();
                 if (target) {
                     console.log('iframe-handler.js: Dispatching keydown to', target.tagName);
-                    target.dispatchEvent(event);
+                    const result = target.dispatchEvent(event);
+                    console.log('iframe-handler.js: Event dispatch result:', result ? 'not cancelled' : 'cancelled');
+                    
+                    // Check if the event had any effect
+                    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+                        console.log('iframe-handler.js: Target value after event:',
+                            target.value ? target.value.substring(0, 20) + '...' : '(empty)');
+                    }
                 } else {
                     console.log('iframe-handler.js: Dispatching keydown to document');
                     document.dispatchEvent(event);
@@ -69,12 +90,16 @@
                 try {
                     const target = findBestTarget();
                     if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+                        console.log('iframe-handler.js: Attempting direct text insertion for key:', key);
+                        
                         const start = target.selectionStart;
                         const end = target.selectionEnd;
+                        console.log('iframe-handler.js: Selection range:', start, 'to', end);
                         
-                        target.value = 
-                            target.value.substring(0, start) + 
-                            key + 
+                        const originalValue = target.value;
+                        target.value =
+                            target.value.substring(0, start) +
+                            key +
                             target.value.substring(end);
                         
                         // Update selection
@@ -83,12 +108,19 @@
                         // Trigger input event
                         target.dispatchEvent(new Event('input', { bubbles: true }));
                         
-                        console.log('iframe-handler.js: Inserted text directly');
+                        console.log('iframe-handler.js: Inserted text directly. Before:',
+                            originalValue ? originalValue.substring(0, 20) + '...' : '(empty)',
+                            'After:', target.value ? target.value.substring(0, 20) + '...' : '(empty)');
+                    } else {
+                        console.log('iframe-handler.js: Direct text insertion not possible, target is not input/textarea');
                     }
                 } catch (error) {
                     console.error('iframe-handler.js: Error inserting text:', error);
                 }
             }
+            
+            // Add a final check to see if any approach worked
+            console.log('iframe-handler.js: Completed keydown simulation for', key);
         }
         
         // Simulate a key up event
@@ -176,10 +208,16 @@
         
         // Find the best target for keyboard events
         function findBestTarget() {
+            console.log('iframe-handler.js: Finding best target for keyboard event');
+            
             // First, try the active element
-            if (document.activeElement && 
-                document.activeElement !== document.body && 
+            if (document.activeElement &&
+                document.activeElement !== document.body &&
                 document.activeElement !== document.documentElement) {
+                console.log('iframe-handler.js: Using activeElement as target:',
+                    document.activeElement.tagName,
+                    document.activeElement.id ? '#' + document.activeElement.id : '',
+                    document.activeElement.className ? '.' + document.activeElement.className.replace(/ /g, '.') : '');
                 return document.activeElement;
             }
             
@@ -196,16 +234,88 @@
                 '.monaco-editor', // Monaco editor container
             ];
             
+            console.log('iframe-handler.js: Searching for target elements with selectors');
+            
             for (const selector of selectors) {
                 const elements = document.querySelectorAll(selector);
                 if (elements.length > 0) {
+                    console.log('iframe-handler.js: Found target with selector:', selector,
+                        'count:', elements.length,
+                        'element:', elements[0].tagName,
+                        elements[0].id ? '#' + elements[0].id : '',
+                        elements[0].className ? '.' + elements[0].className.replace(/ /g, '.') : '');
                     return elements[0];
                 }
             }
             
+            console.log('iframe-handler.js: No specific target found, falling back to document.body');
             // Fallback to document.body
             return document.body;
         }
+        
+        // Check if we can find the expected DOM elements
+        function checkDomElements() {
+            console.log('iframe-handler.js: Checking for DOM elements');
+            
+            // Check for terminal elements
+            const terminalSelectors = [
+                '.xterm-helper-textarea',
+                '.terminal-wrapper textarea',
+                '.monaco-editor textarea',
+                '.terminal textarea',
+                'textarea',
+                '.xterm',
+                '.terminal',
+                '.monaco-editor'
+            ];
+            
+            const foundElements = {};
+            
+            for (const selector of terminalSelectors) {
+                const elements = document.querySelectorAll(selector);
+                foundElements[selector] = elements.length;
+                
+                if (elements.length > 0) {
+                    console.log(`iframe-handler.js: Found ${elements.length} elements matching "${selector}"`);
+                    
+                    // Log details about the first element
+                    const el = elements[0];
+                    console.log(`iframe-handler.js: First element - tagName: ${el.tagName}, id: ${el.id || '(none)'}, classes: ${el.className || '(none)'}`);
+                    
+                    // Try to focus the element
+                    try {
+                        el.focus();
+                        console.log(`iframe-handler.js: Successfully focused element ${selector}`);
+                        
+                        // Try to dispatch a test event to this element
+                        try {
+                            const testEvent = new KeyboardEvent('keydown', {
+                                key: 'a',
+                                code: 'KeyA',
+                                bubbles: true,
+                                cancelable: true
+                            });
+                            
+                            el.dispatchEvent(testEvent);
+                            console.log(`iframe-handler.js: Successfully dispatched test event to ${selector}`);
+                        } catch (eventError) {
+                            console.error(`iframe-handler.js: Error dispatching test event to ${selector}:`, eventError);
+                        }
+                    } catch (focusError) {
+                        console.error(`iframe-handler.js: Error focusing element ${selector}:`, focusError);
+                    }
+                }
+            }
+            
+            // Send results to parent
+            window.parent.postMessage({
+                type: 'dom-elements-check',
+                elements: foundElements
+            }, '*');
+        }
+        
+        // Run the check after a short delay to ensure the page is fully loaded
+        setTimeout(checkDomElements, 2000);
         
         // Notify the parent window that we're ready
         window.parent.postMessage({ type: 'iframe-handler-ready' }, '*');
