@@ -423,26 +423,66 @@
                         inlineScript.textContent = `
                             // Direct keyboard event handler for code-server iframe
                             (function() {
-                                console.log('Direct keyboard event handler initialized in iframe');
-                                
-                                // Listen for messages from the parent window
-                                window.addEventListener('message', function(event) {
-                                    // Make sure the message is from our parent
-                                    if (event.source === window.parent) {
-                                        console.log('Received message from parent:', event.data);
-                                        
-                                        if (event.data && event.data.type === 'keyEvent') {
-                                            console.log('Processing key event:', event.data);
+                                try {
+                                    console.log('Direct keyboard event handler initialized in iframe');
+                                    window.parent.postMessage({ type: 'debug-log', message: 'Direct keyboard event handler initialized in iframe' }, '*');
+                                    
+                                    // Create a visual indicator to confirm script execution
+                                    const indicator = document.createElement('div');
+                                    indicator.style.position = 'fixed';
+                                    indicator.style.top = '5px';
+                                    indicator.style.left = '5px';
+                                    indicator.style.background = 'rgba(0, 255, 0, 0.5)';
+                                    indicator.style.color = 'white';
+                                    indicator.style.padding = '5px';
+                                    indicator.style.borderRadius = '3px';
+                                    indicator.style.zIndex = '9999';
+                                    indicator.style.fontSize = '10px';
+                                    indicator.textContent = 'Keyboard Handler Active';
+                                    document.body.appendChild(indicator);
+                                    
+                                    // Use a more direct approach to handle keyboard events
+                                    document.addEventListener('keydown', function(e) {
+                                        console.log('Native keydown event captured:', e.key);
+                                        window.parent.postMessage({
+                                            type: 'debug-log',
+                                            message: 'Native keydown event captured: ' + e.key
+                                        }, '*');
+                                    });
+                                    
+                                    // Listen for messages from the parent window
+                                    window.addEventListener('message', function(event) {
+                                        // Make sure the message is from our parent
+                                        if (event.source === window.parent) {
+                                            console.log('Received message from parent:', event.data);
+                                            window.parent.postMessage({
+                                                type: 'debug-log',
+                                                message: 'Received message from parent: ' + JSON.stringify(event.data)
+                                            }, '*');
                                             
-                                            // Handle the key event
-                                            if (event.data.eventType === 'keydown') {
-                                                simulateKeyEvent('keydown', event.data.key, event.data.modifiers || []);
-                                            } else if (event.data.eventType === 'keyup') {
-                                                simulateKeyEvent('keyup', event.data.key, event.data.modifiers || []);
+                                            if (event.data && event.data.type === 'keyEvent') {
+                                                console.log('Processing key event:', event.data);
+                                                window.parent.postMessage({
+                                                    type: 'debug-log',
+                                                    message: 'Processing key event: ' + JSON.stringify(event.data)
+                                                }, '*');
+                                                
+                                                // Handle the key event
+                                                if (event.data.eventType === 'keydown') {
+                                                    simulateKeyEvent('keydown', event.data.key, event.data.modifiers || []);
+                                                } else if (event.data.eventType === 'keyup') {
+                                                    simulateKeyEvent('keyup', event.data.key, event.data.modifiers || []);
+                                                }
                                             }
                                         }
-                                    }
-                                });
+                                    });
+                                } catch (initError) {
+                                    console.error('Error initializing keyboard handler:', initError);
+                                    window.parent.postMessage({
+                                        type: 'debug-log',
+                                        message: 'Error initializing keyboard handler: ' + initError.message
+                                    }, '*');
+                                }
                                 
                                 // Simulate a keyboard event
                                 function simulateKeyEvent(eventType, key, modifiers = []) {
@@ -633,6 +673,11 @@
                             const count = elements[selector];
                             debugLog(`- ${selector}: ${count} elements`);
                         }
+                    }
+                    
+                    // Handle debug log messages from the iframe
+                    if (event.data && event.data.type === 'debug-log') {
+                        debugLog('IFRAME: ' + event.data.message);
                     }
                 }
             });
