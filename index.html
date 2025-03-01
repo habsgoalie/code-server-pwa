@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Code Server PWA</title>
     
+    <!-- Adjust for tailscale path serve -->
+    <base href="/pwa/">
+    
     <!-- Allow mixed content (HTTP page loading HTTPS iframe) -->
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     
@@ -146,6 +149,46 @@
             background-color: #106ebe;
         }
         
+        /* Key Press Effect */
+        .key-press-effect {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 24px;
+            z-index: 2000;
+            opacity: 0.8;
+            transition: opacity 0.5s ease;
+        }
+        
+        .key-press-effect.fade-out {
+            opacity: 0;
+        }
+        
+        /* Keyboard Notification */
+        .keyboard-notification {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            z-index: 2000;
+            opacity: 0.8;
+            transition: opacity 0.5s ease;
+        }
+        
+        .keyboard-notification.fade-out {
+            opacity: 0;
+        }
+        
         /* Loading Overlay */
         .loading-overlay {
             position: fixed;
@@ -281,21 +324,34 @@
             }
         }
         
-        /* Hidden input for keyboard focus */
-        #keyboard-input {
-            position: absolute;
-            opacity: 0;
-            pointer-events: none;
-            z-index: -1;
+        /* Debug panel */
+        .debug-panel {
+            position: fixed;
+            top: 30px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            max-width: 300px;
+            max-height: 200px;
+            overflow: auto;
+            z-index: 1002;
+            display: none;
+        }
+        
+        .debug-panel.visible {
+            display: block;
         }
     </style>
 </head>
 <body>
-    <!-- Hidden input for keyboard focus -->
-    <input type="text" id="keyboard-input" autocomplete="off">
-    
     <!-- Main iframe for Code Server -->
     <iframe id="codeServer" allow="clipboard-read; clipboard-write" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-top-navigation"></iframe>
+    
+    <!-- Debug panel for troubleshooting -->
+    <div id="debug-panel" class="debug-panel"></div>
     
     <!-- Loading, Error, and Status elements will be created by JavaScript -->
     
@@ -306,38 +362,55 @@
             return window?.ENV?.[name] || defaultValue;
         }
         
+        // Debug logging function
+        function debugLog(message) {
+            const debugPanel = document.getElementById('debug-panel');
+            if (debugPanel) {
+                const logEntry = document.createElement('div');
+                logEntry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+                debugPanel.appendChild(logEntry);
+                
+                // Limit entries
+                while (debugPanel.children.length > 20) {
+                    debugPanel.removeChild(debugPanel.firstChild);
+                }
+                
+                // Auto-scroll
+                debugPanel.scrollTop = debugPanel.scrollHeight;
+            }
+            console.log(message);
+        }
+        
+        // Toggle debug panel with Ctrl+Shift+D
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'd') {
+                const debugPanel = document.getElementById('debug-panel');
+                if (debugPanel) {
+                    debugPanel.classList.toggle('visible');
+                    e.preventDefault();
+                }
+            }
+        });
+        
         // Set up iframe with proper attributes for cross-origin content
         document.addEventListener('DOMContentLoaded', function() {
             const iframe = document.getElementById('codeServer');
+            
+            // Get code server URL from environment variables
             const codeServerUrl = getEnvVar('CODE_SERVER_URL', 'https://default-code-server-url');
+            debugLog(`Setting iframe source to: ${codeServerUrl}`);
             
             // Set iframe source
             iframe.src = codeServerUrl;
             
-            // Set up keyboard input focus
-            const keyboardInput = document.getElementById('keyboard-input');
-            
-            // Focus the input when the iframe is clicked
-            iframe.addEventListener('click', function() {
-                keyboardInput.focus();
+            // Handle iframe load event
+            iframe.addEventListener('load', function() {
+                debugLog('Iframe loaded successfully');
             });
             
-            // Focus the input when the page loads
-            setTimeout(function() {
-                keyboardInput.focus();
-            }, 1000);
-            
-            // Handle keyboard events on the input
-            keyboardInput.addEventListener('keydown', function(e) {
-                // Prevent default for certain keys to avoid browser shortcuts
-                if (['Tab', 'F5', 'F11'].includes(e.key) || (e.ctrlKey && ['r', 's', 'p'].includes(e.key))) {
-                    e.preventDefault();
-                }
-                
-                // Focus the iframe to ensure it receives the event
-                iframe.focus();
-                
-                console.log('Keyboard input keydown:', e.key);
+            // Handle iframe error event
+            iframe.addEventListener('error', function() {
+                debugLog('Error loading iframe');
             });
         });
     </script>
