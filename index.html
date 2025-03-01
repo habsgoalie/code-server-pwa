@@ -416,32 +416,152 @@
                     debugLog('Iframe URL: ' + iframeWindow.location.href);
                     debugLog('Iframe document title: ' + iframeDocument.title);
                     
-                    // Inject iframe-handler.js into the iframe
+                    // Instead of loading an external script, inject the event handler code directly
                     try {
-                        // Create a script element
-                        const script = iframeDocument.createElement('script');
-                        
-                        // Use absolute path to ensure correct loading
-                        const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
-                        script.src = baseUrl + 'js/iframe-handler.js';
-                        script.type = 'text/javascript';
-                        
-                        debugLog('Injecting script with src: ' + script.src);
-                        
-                        // Add onload handler to verify script loading
-                        script.onload = function() {
-                            debugLog('iframe-handler.js loaded successfully in iframe');
-                        };
-                        
-                        script.onerror = function(error) {
-                            debugLog('Error loading iframe-handler.js in iframe: ' + error);
-                        };
+                        const inlineScript = iframeDocument.createElement('script');
+                        inlineScript.type = 'text/javascript';
+                        inlineScript.textContent = `
+                            // Direct keyboard event handler for code-server iframe
+                            (function() {
+                                console.log('Direct keyboard event handler initialized in iframe');
+                                
+                                // Listen for messages from the parent window
+                                window.addEventListener('message', function(event) {
+                                    // Make sure the message is from our parent
+                                    if (event.source === window.parent) {
+                                        console.log('Received message from parent:', event.data);
+                                        
+                                        if (event.data && event.data.type === 'keyEvent') {
+                                            console.log('Processing key event:', event.data);
+                                            
+                                            // Handle the key event
+                                            if (event.data.eventType === 'keydown') {
+                                                simulateKeyEvent('keydown', event.data.key, event.data.modifiers || []);
+                                            } else if (event.data.eventType === 'keyup') {
+                                                simulateKeyEvent('keyup', event.data.key, event.data.modifiers || []);
+                                            }
+                                        }
+                                    }
+                                });
+                                
+                                // Simulate a keyboard event
+                                function simulateKeyEvent(eventType, key, modifiers = []) {
+                                    console.log('Simulating', eventType, 'for key:', key, 'with modifiers:', modifiers);
+                                    
+                                    try {
+                                        // Create keyboard event options
+                                        const options = {
+                                            key: key,
+                                            code: getCodeFromKey(key),
+                                            bubbles: true,
+                                            cancelable: true,
+                                            view: window
+                                        };
+                                        
+                                        // Add modifier flags
+                                        modifiers.forEach(modifier => {
+                                            switch (modifier) {
+                                                case 'Control': options.ctrlKey = true; break;
+                                                case 'Alt': options.altKey = true; break;
+                                                case 'Shift': options.shiftKey = true; break;
+                                            }
+                                        });
+                                        
+                                        // Find the best target
+                                        const target = findBestTarget();
+                                        
+                                        // Create and dispatch the event
+                                        const event = new KeyboardEvent(eventType, options);
+                                        
+                                        if (target) {
+                                            console.log('Dispatching', eventType, 'to', target.tagName);
+                                            target.dispatchEvent(event);
+                                        } else {
+                                            console.log('Dispatching', eventType, 'to document');
+                                            document.dispatchEvent(event);
+                                        }
+                                    } catch (error) {
+                                        console.error('Error simulating keyboard event:', error);
+                                    }
+                                }
+                                
+                                // Get the code value from a key
+                                function getCodeFromKey(key) {
+                                    // For letter keys
+                                    if (key.length === 1 && /[a-z]/i.test(key)) {
+                                        return 'Key' + key.toUpperCase();
+                                    }
+                                    
+                                    // Map for special keys
+                                    const codeMap = {
+                                        'ArrowUp': 'ArrowUp',
+                                        'ArrowDown': 'ArrowDown',
+                                        'ArrowLeft': 'ArrowLeft',
+                                        'ArrowRight': 'ArrowRight',
+                                        'Home': 'Home',
+                                        'End': 'End',
+                                        'PageUp': 'PageUp',
+                                        'PageDown': 'PageDown',
+                                        'Escape': 'Escape',
+                                        'Tab': 'Tab',
+                                        'Backspace': 'Backspace',
+                                        'Delete': 'Delete',
+                                        'Control': 'ControlLeft',
+                                        'Alt': 'AltLeft',
+                                        'Shift': 'ShiftLeft'
+                                    };
+                                    
+                                    return codeMap[key] || key;
+                                }
+                                
+                                // Find the best target for keyboard events
+                                function findBestTarget() {
+                                    console.log('Finding best target for keyboard event');
+                                    
+                                    // First, try the active element
+                                    if (document.activeElement &&
+                                        document.activeElement !== document.body &&
+                                        document.activeElement !== document.documentElement) {
+                                        console.log('Using activeElement as target:', document.activeElement.tagName);
+                                        return document.activeElement;
+                                    }
+                                    
+                                    // Try to find a terminal or editor element
+                                    const selectors = [
+                                        '.xterm-helper-textarea', // xterm.js terminal input
+                                        '.terminal-wrapper textarea', // VS Code terminal
+                                        '.monaco-editor textarea', // Monaco editor
+                                        '.terminal textarea', // Generic terminal
+                                        'textarea', // Any textarea
+                                        'input[type="text"]', // Any text input
+                                        '.xterm', // xterm.js container
+                                        '.terminal', // Generic terminal container
+                                        '.monaco-editor', // Monaco editor container
+                                    ];
+                                    
+                                    for (const selector of selectors) {
+                                        const elements = document.querySelectorAll(selector);
+                                        if (elements.length > 0) {
+                                            console.log('Found target with selector:', selector, 'count:', elements.length);
+                                            return elements[0];
+                                        }
+                                    }
+                                    
+                                    console.log('No specific target found, falling back to document.body');
+                                    return document.body;
+                                }
+                                
+                                // Notify the parent window that we're ready
+                                window.parent.postMessage({ type: 'direct-handler-ready' }, '*');
+                                console.log('Direct keyboard event handler ready');
+                            })();
+                        `;
                         
                         // Append the script to the iframe's document
-                        iframeDocument.head.appendChild(script);
-                        debugLog('Script element appended to iframe head');
+                        iframeDocument.head.appendChild(inlineScript);
+                        debugLog('Inline keyboard event handler script injected into iframe');
                     } catch (scriptError) {
-                        debugLog('Error creating or appending script: ' + scriptError.message);
+                        debugLog('Error injecting inline script: ' + scriptError.message);
                     }
                     
                     // Also inject a small test script to verify script execution
@@ -483,6 +603,11 @@
                     // Handle iframe-handler-ready message
                     if (event.data && event.data.type === 'iframe-handler-ready') {
                         debugLog('iframe-handler.js is ready in the iframe');
+                    }
+                    
+                    // Handle direct-handler-ready message
+                    if (event.data && event.data.type === 'direct-handler-ready') {
+                        debugLog('Direct keyboard event handler is ready in the iframe');
                     }
                     
                     // Handle test script execution message
