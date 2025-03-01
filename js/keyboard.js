@@ -424,47 +424,11 @@ class TerminalKeyboard {
                         }
                     }
                     
-                    // Create keyboard event options
-                    const options = {
-                        key: key,
-                        code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
-                        bubbles: true,
-                        cancelable: true,
-                        view: this.iframe.contentWindow
-                    };
-                    
-                    // Create and dispatch the event directly to the target
-                    const event = new KeyboardEvent('keydown', options);
-                    console.log('Dispatching direct keydown event to target:', target.tagName);
-                    target.dispatchEvent(event);
-                    
                     // For Monaco editor and VS Code, we need special handling
                     const isMonacoEditor = target.closest('.monaco-editor') !== null;
                     const isTerminal = target.closest('.terminal') !== null || target.closest('.xterm') !== null;
                     
-                    // For text inputs in Monaco editor, don't use direct insertion as it causes doubling
-                    if (key.length === 1 && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && !isMonacoEditor && !isTerminal) {
-                        try {
-                            // Get current selection
-                            const start = target.selectionStart || 0;
-                            const end = target.selectionEnd || 0;
-                            
-                            // Insert the character
-                            const newValue = target.value.substring(0, start) + key + target.value.substring(end);
-                            target.value = newValue;
-                            
-                            // Update selection
-                            target.selectionStart = target.selectionEnd = start + 1;
-                            
-                            // Trigger input event
-                            target.dispatchEvent(new Event('input', { bubbles: true }));
-                            console.log('Directly inserted text into input element');
-                        } catch (insertError) {
-                            console.error('Error inserting text directly:', insertError);
-                        }
-                    }
-                    
-                    // For terminal, try a more direct approach
+                    // For terminal, use a specialized approach
                     if (isTerminal) {
                         try {
                             // Create a more specific keyboard event with additional properties
@@ -493,6 +457,100 @@ class TerminalKeyboard {
                             }
                         } catch (terminalError) {
                             console.error('Error dispatching terminal event:', terminalError);
+                        }
+                    }
+                    // For Monaco editor
+                    else if (isMonacoEditor) {
+                        try {
+                            // Create keyboard event options with keyCode for Monaco
+                            const editorOptions = {
+                                key: key,
+                                code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
+                                keyCode: key.length === 1 ? key.charCodeAt(0) : this.getKeyCode(key),
+                                which: key.length === 1 ? key.charCodeAt(0) : this.getKeyCode(key),
+                                bubbles: true,
+                                cancelable: true,
+                                view: this.iframe.contentWindow
+                            };
+                            
+                            // Create and dispatch the event directly to the target
+                            const editorEvent = new KeyboardEvent('keydown', editorOptions);
+                            console.log('Dispatching specialized Monaco editor keydown event');
+                            target.dispatchEvent(editorEvent);
+                            
+                            // For character keys in Monaco, we need to use the input event
+                            if (key.length === 1) {
+                                try {
+                                    const inputEvent = new InputEvent('beforeinput', {
+                                        data: key,
+                                        inputType: 'insertText',
+                                        bubbles: true,
+                                        cancelable: true
+                                    });
+                                    target.dispatchEvent(inputEvent);
+                                    
+                                    // Also try composition events which Monaco uses
+                                    const startEvent = new CompositionEvent('compositionstart', {
+                                        data: '',
+                                        bubbles: true
+                                    });
+                                    target.dispatchEvent(startEvent);
+                                    
+                                    const updateEvent = new CompositionEvent('compositionupdate', {
+                                        data: key,
+                                        bubbles: true
+                                    });
+                                    target.dispatchEvent(updateEvent);
+                                    
+                                    const endEvent = new CompositionEvent('compositionend', {
+                                        data: key,
+                                        bubbles: true
+                                    });
+                                    target.dispatchEvent(endEvent);
+                                } catch (inputError) {
+                                    console.error('Error dispatching input events to Monaco:', inputError);
+                                }
+                            }
+                        } catch (editorError) {
+                            console.error('Error dispatching Monaco editor event:', editorError);
+                        }
+                    }
+                    // For regular inputs
+                    else {
+                        // Create standard keyboard event options
+                        const options = {
+                            key: key,
+                            code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
+                            bubbles: true,
+                            cancelable: true,
+                            view: this.iframe.contentWindow
+                        };
+                        
+                        // Create and dispatch the event directly to the target
+                        const event = new KeyboardEvent('keydown', options);
+                        console.log('Dispatching standard keydown event to target:', target.tagName);
+                        target.dispatchEvent(event);
+                        
+                        // For text inputs, also try to insert the text directly
+                        if (key.length === 1 && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+                            try {
+                                // Get current selection
+                                const start = target.selectionStart || 0;
+                                const end = target.selectionEnd || 0;
+                                
+                                // Insert the character
+                                const newValue = target.value.substring(0, start) + key + target.value.substring(end);
+                                target.value = newValue;
+                                
+                                // Update selection
+                                target.selectionStart = target.selectionEnd = start + 1;
+                                
+                                // Trigger input event
+                                target.dispatchEvent(new Event('input', { bubbles: true }));
+                                console.log('Directly inserted text into input element');
+                            } catch (insertError) {
+                                console.error('Error inserting text directly:', insertError);
+                            }
                         }
                     }
                     
@@ -578,18 +636,69 @@ class TerminalKeyboard {
                         }
                     }
                     
-                    // Create keyboard event options
-                    const options = {
-                        key: key,
-                        code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
-                        bubbles: true,
-                        cancelable: true,
-                        view: this.iframe.contentWindow
-                    };
+                    // For Monaco editor and VS Code, we need special handling
+                    const isMonacoEditor = target.closest('.monaco-editor') !== null;
+                    const isTerminal = target.closest('.terminal') !== null || target.closest('.xterm') !== null;
                     
-                    // Create and dispatch the event directly to the target
-                    const event = new KeyboardEvent('keyup', options);
-                    target.dispatchEvent(event);
+                    // For terminal, use a specialized approach
+                    if (isTerminal) {
+                        try {
+                            // Create a more specific keyboard event with additional properties
+                            const terminalEvent = new KeyboardEvent('keyup', {
+                                key: key,
+                                code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
+                                keyCode: key.length === 1 ? key.charCodeAt(0) : this.getKeyCode(key),
+                                which: key.length === 1 ? key.charCodeAt(0) : this.getKeyCode(key),
+                                bubbles: true,
+                                cancelable: true,
+                                view: this.iframe.contentWindow,
+                                composed: true
+                            });
+                            
+                            console.log('Dispatching specialized terminal keyup event');
+                            target.dispatchEvent(terminalEvent);
+                        } catch (terminalError) {
+                            console.error('Error dispatching terminal keyup event:', terminalError);
+                        }
+                    }
+                    // For Monaco editor
+                    else if (isMonacoEditor) {
+                        try {
+                            // Create keyboard event options with keyCode for Monaco
+                            const editorOptions = {
+                                key: key,
+                                code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
+                                keyCode: key.length === 1 ? key.charCodeAt(0) : this.getKeyCode(key),
+                                which: key.length === 1 ? key.charCodeAt(0) : this.getKeyCode(key),
+                                bubbles: true,
+                                cancelable: true,
+                                view: this.iframe.contentWindow
+                            };
+                            
+                            // Create and dispatch the event directly to the target
+                            const editorEvent = new KeyboardEvent('keyup', editorOptions);
+                            console.log('Dispatching specialized Monaco editor keyup event');
+                            target.dispatchEvent(editorEvent);
+                        } catch (editorError) {
+                            console.error('Error dispatching Monaco editor keyup event:', editorError);
+                        }
+                    }
+                    // For regular inputs
+                    else {
+                        // Create standard keyboard event options
+                        const options = {
+                            key: key,
+                            code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
+                            bubbles: true,
+                            cancelable: true,
+                            view: this.iframe.contentWindow
+                        };
+                        
+                        // Create and dispatch the event directly to the target
+                        const event = new KeyboardEvent('keyup', options);
+                        console.log('Dispatching standard keyup event to target:', target.tagName);
+                        target.dispatchEvent(event);
+                    }
                     
                 } catch (accessError) {
                     console.error('Cannot access iframe document for keyup:', accessError);
