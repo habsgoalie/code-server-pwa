@@ -406,11 +406,42 @@
             // Handle iframe load event
             iframe.addEventListener('load', function() {
                 debugLog('Iframe loaded successfully');
+                
+                // Inject iframe-handler.js into the iframe
+                try {
+                    const iframeWindow = iframe.contentWindow;
+                    const iframeDocument = iframe.contentDocument || iframeWindow.document;
+                    
+                    // Create a script element
+                    const script = iframeDocument.createElement('script');
+                    script.src = 'js/iframe-handler.js';
+                    script.type = 'text/javascript';
+                    
+                    // Append the script to the iframe's document
+                    iframeDocument.head.appendChild(script);
+                    
+                    debugLog('Injected iframe-handler.js into iframe');
+                } catch (error) {
+                    debugLog('Error injecting iframe-handler.js: ' + error.message);
+                }
             });
             
             // Handle iframe error event
             iframe.addEventListener('error', function() {
                 debugLog('Error loading iframe');
+            });
+            
+            // Listen for messages from the iframe
+            window.addEventListener('message', function(event) {
+                // Check if the message is from our iframe
+                if (event.source === iframe.contentWindow) {
+                    debugLog('Received message from iframe: ' + JSON.stringify(event.data));
+                    
+                    // Handle iframe-handler-ready message
+                    if (event.data && event.data.type === 'iframe-handler-ready') {
+                        debugLog('iframe-handler.js is ready in the iframe');
+                    }
+                }
             });
         });
     </script>
