@@ -61,7 +61,6 @@ class TerminalKeyboard {
         this.initialized = true;
         console.log('Terminal keyboard initialized');
     }
-    
     /**
      * Check iframe sandbox attributes
      */
@@ -100,6 +99,38 @@ class TerminalKeyboard {
         } catch (error) {
             console.error('Cannot access iframe document due to cross-origin restrictions:', error);
         }
+    }
+    
+    /**
+     * Get keyCode for special keys
+     */
+    getKeyCode(key) {
+        const keyCodeMap = {
+            'ArrowUp': 38,
+            'ArrowDown': 40,
+            'ArrowLeft': 37,
+            'ArrowRight': 39,
+            'Home': 36,
+            'End': 35,
+            'PageUp': 33,
+            'PageDown': 34,
+            'Escape': 27,
+            'Tab': 9,
+            'Backspace': 8,
+            'Delete': 46,
+            'Enter': 13,
+            'Control': 17,
+            'Alt': 18,
+            'Shift': 16,
+            'F1': 112,
+            'F2': 113,
+            'F3': 114,
+            'F4': 115,
+            'F5': 116,
+            'F6': 117
+        };
+        
+        return keyCodeMap[key] || 0;
     }
 
     /**
@@ -407,8 +438,12 @@ class TerminalKeyboard {
                     console.log('Dispatching direct keydown event to target:', target.tagName);
                     target.dispatchEvent(event);
                     
-                    // For text inputs, also try to insert the text directly
-                    if (key.length === 1 && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+                    // For Monaco editor and VS Code, we need special handling
+                    const isMonacoEditor = target.closest('.monaco-editor') !== null;
+                    const isTerminal = target.closest('.terminal') !== null || target.closest('.xterm') !== null;
+                    
+                    // For text inputs in Monaco editor, don't use direct insertion as it causes doubling
+                    if (key.length === 1 && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && !isMonacoEditor && !isTerminal) {
                         try {
                             // Get current selection
                             const start = target.selectionStart || 0;
@@ -429,14 +464,36 @@ class TerminalKeyboard {
                         }
                     }
                     
-                    // Also try to use execCommand for document.execCommand('insertText', false, key);
-                    try {
-                        if (key.length === 1 && iframeDocument.execCommand) {
-                            iframeDocument.execCommand('insertText', false, key);
-                            console.log('Used execCommand to insert text');
+                    // For terminal, try a more direct approach
+                    if (isTerminal) {
+                        try {
+                            // Create a more specific keyboard event with additional properties
+                            const terminalEvent = new KeyboardEvent('keydown', {
+                                key: key,
+                                code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
+                                keyCode: key.length === 1 ? key.charCodeAt(0) : this.getKeyCode(key),
+                                which: key.length === 1 ? key.charCodeAt(0) : this.getKeyCode(key),
+                                bubbles: true,
+                                cancelable: true,
+                                view: this.iframe.contentWindow,
+                                composed: true
+                            });
+                            
+                            console.log('Dispatching specialized terminal keydown event');
+                            target.dispatchEvent(terminalEvent);
+                            
+                            // For character keys, also try to insert the character directly
+                            if (key.length === 1) {
+                                const inputEvent = new InputEvent('input', {
+                                    data: key,
+                                    inputType: 'insertText',
+                                    bubbles: true
+                                });
+                                target.dispatchEvent(inputEvent);
+                            }
+                        } catch (terminalError) {
+                            console.error('Error dispatching terminal event:', terminalError);
                         }
-                    } catch (execCommandError) {
-                        console.error('Error using execCommand:', execCommandError);
                     }
                     
                 } catch (accessError) {
