@@ -132,6 +132,19 @@ class TerminalKeyboard {
         
         return keyCodeMap[key] || 0;
     }
+    
+    /**
+     * Get code for modifier keys
+     */
+    getModifierCode(modifier) {
+        const modifierCodeMap = {
+            'Control': 'ControlLeft',
+            'Alt': 'AltLeft',
+            'Shift': 'ShiftLeft'
+        };
+        
+        return modifierCodeMap[modifier] || modifier;
+    }
 
     /**
      * Create keyboard DOM elements
@@ -806,6 +819,27 @@ class TerminalKeyboard {
                         const upEvent = new KeyboardEvent('keyup', upOptions);
                         target.dispatchEvent(upEvent);
                         console.log('Dispatched direct combination keyup event to target');
+                        
+                        // Also send keyup events for each modifier key to prevent them from getting stuck
+                        modifiers.forEach(modifier => {
+                            try {
+                                const modifierUpOptions = {
+                                    key: modifier,
+                                    code: this.getModifierCode(modifier),
+                                    keyCode: this.getKeyCode(modifier),
+                                    which: this.getKeyCode(modifier),
+                                    bubbles: true,
+                                    cancelable: true,
+                                    view: this.iframe.contentWindow
+                                };
+                                
+                                const modifierUpEvent = new KeyboardEvent('keyup', modifierUpOptions);
+                                target.dispatchEvent(modifierUpEvent);
+                                console.log('Dispatched keyup for modifier:', modifier);
+                            } catch (modifierError) {
+                                console.error('Error dispatching modifier keyup:', modifierError);
+                            }
+                        });
                     }, 50);
                     
                 } catch (accessError) {
@@ -828,6 +862,7 @@ class TerminalKeyboard {
                     
                     // Send keyup after a short delay
                     setTimeout(() => {
+                        // Send keyup for the main key
                         const upMessage = {
                             type: 'keyEvent',
                             eventType: 'keyup',
@@ -837,6 +872,19 @@ class TerminalKeyboard {
                         };
                         
                         this.iframe.contentWindow.postMessage(upMessage, '*');
+                        
+                        // Also send keyup for each modifier to prevent them from getting stuck
+                        modifiers.forEach(modifier => {
+                            const modifierUpMessage = {
+                                type: 'keyEvent',
+                                eventType: 'keyup',
+                                key: modifier,
+                                activeKeys: Array.from(this.activeKeys)
+                            };
+                            
+                            this.iframe.contentWindow.postMessage(modifierUpMessage, '*');
+                            console.log('Sent modifier keyup via postMessage:', modifier);
+                        });
                     }, 50);
                 } catch (e) {
                     console.error('postMessage error:', e);
